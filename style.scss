@@ -1,0 +1,35 @@
+$main-font: 'Montserrat', sans-serif;
+
+
+#messages {
+    background-color: yellow;
+    font-size: 3em; /* Adjust the size as needed */
+    font-weight: bold;
+    line-height: 140%;
+  }
+  
+  #status {
+    background-color: red;
+    font-size: 4em; /* Adjust the size as needed */
+    font-weight: bold;
+    color: white;
+    line-height: 140%;
+  }
+
+
+body {
+    background-color: #a2b2bb;
+    font-family: $main-font;
+}
+
+#map { 
+    height: 100vh;
+    position: relative;
+ }
+
+.date {
+    position: absolute;
+    top: 200px;
+    right: 20px;
+    z-index: 1;
+}

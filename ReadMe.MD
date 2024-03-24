@@ -1,0 +1,1 @@
+The project was adapted from the websockets-3.htm file provided from http://www.steves-internet-guide.com/ along with the video tutorials on youtube. The code allows for messaging and location/temperature display on a leaflet map. 

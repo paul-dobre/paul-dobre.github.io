@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+
+
+<head>
+	<link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css">
+	<link rel="stylesheet" href="style.css">
+	<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
+	<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+	integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+	crossorigin=""></script>
+	<script src="https://cdnjs.cloudflare.com/ajax/libs/paho-mqtt/1.0.1/mqttws31.min.js" type="text/javascript"></script>
+</head>
+
+<body>
+	<div id="map"></div>
+</body>
+
+
+
+<head>
+  <title>ENGO551 Lab 5</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/paho-mqtt/1.0.1/mqttws31.js" type="text/javascript"></script>
+  <script type="text/javascript" src="https://ajax.googleapis.com/ajax/libs/jquery/2.1.3/jquery.min.js"></script>
+  <script type="text/javascript">
+    function onConnectionLost() {
+      console.log("connection lost");
+      document.getElementById("status").innerHTML = "Connection Lost";
+      document.getElementById("messages").innerHTML = "Connection Lost";
+      toggleFormsVisibility(true); // Show connect forms
+      connected_flag = 0;
+    }
+
+    function onFailure(message) {
+      console.log("Failed");
+      document.getElementById("messages").innerHTML = "Connection Failed- Retrying";
+      setTimeout(MQTTconnect, reconnectTimeout);
+    }
+
+    function onDataArrived(r_message) {
+      out_msg = "Message received " + r_message.payloadString + "<br>";
+      out_msg = out_msg + "Message received Topic " + r_message.destinationName;
+      console.log(out_msg);
+      document.getElementById("messages").innerHTML = out_msg;
+
+      try {
+        coordinates = JSON.parse(r_message.payloadString);
+		var latitude = coordinates.latitude;
+        var longitude = coordinates.longitude;
+		var temperature = coordinates.temperature;
+
+		var redIcon = L.icon({
+			iconUrl: 'RedMarker.png',
+			iconSize:     [38, 95], // size of the icon
+		})
+
+		var greenIcon = L.icon({
+			iconUrl: 'GreenMarker.png',
+			iconSize:     [38, 95], // size of the icon
+		})
+
+		var blueIcon = L.icon({
+			iconUrl: 'BlueMarker.png',
+			iconSize:     [38, 60], // size of the icon
+		})
+
+		var C_icon;
+		if (temperature < 10)
+			C_icon = blueIcon;
+		else if (temperature < 30)
+			C_icon = greenIcon;
+		else
+			C_icon = redIcon;
+
+		var marker = L.marker([latitude, longitude], {icon: C_icon}).addTo(map);
+		marker.bindPopup('Latitude: ' + latitude + '<br>Longitude: ' + longitude + '<br>Temperature: ' + temperature).openPopup();
+
+
+      } catch (e) {
+        console.log('Regular message')
+      }
+		
+
+    }
+
+    function onConnect() {
+      console.log("Connected to " + host + " on port " + port);
+      document.getElementById("status").innerHTML = "Connected";
+      toggleFormsVisibility(false); // Hide connect forms
+      connected_flag = 1;
+    }
+
+    function disconnect() {
+      if (connected_flag == 1) {
+        mqtt.disconnect();
+        toggleFormsVisibility(true); // Show connect forms
+        connected_flag = 0;
+      }
+    }
+
+    function MQTTconnect() {
+      document.getElementById("messages").innerHTML = "";
+      var s = document.forms["connform"]["server"].value;
+      var p = document.forms["connform"]["port"].value;
+      if (p != "") {
+        port = parseInt(p);
+      }
+      if (s != "") {
+        host = s;
+      }
+      console.log("connecting to " + host + " " + port);
+      var x = Math.floor(Math.random() * 10000);
+      var cname = "orderform-" + x;
+      mqtt = new Paho.MQTT.Client(host, port, cname);
+      var options = {
+        timeout: 3,
+        onSuccess: onConnect,
+        onFailure: onFailure
+      };
+      mqtt.onConnectionLost = onConnectionLost;
+      mqtt.onMessageArrived = onDataArrived;
+      mqtt.connect(options);
+      return false;
+    }
+
+    function sub_topics() {
+      document.getElementById("messages").innerHTML = "";
+      if (connected_flag == 0) {
+        out_msg = "<b>Not Connected so can't subscribe</b>";
+        console.log(out_msg);
+        document.getElementById("messages").innerHTML = out_msg;
+        return false;
+      }
+      var stopic = document.forms["subs"]["Stopic"].value;
+      console.log("Subscribing to topic =" + stopic);
+      mqtt.subscribe(stopic);
+      return false;
+    }
+
+
+
+	function publishLocation() {
+	
+		document.getElementById("messages").innerHTML = "";
+      if (connected_flag == 0) {
+        out_msg = "<b>Not Connected so can't send</b>";
+        console.log(out_msg);
+        document.getElementById("messages").innerHTML = out_msg;
+        return false;
+      }
+
+      if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(function (position) {
+          var latitude = position.coords.latitude;
+          var longitude = position.coords.longitude;
+		  var temperature = Math.floor(Math.random() * (60 - (-40) + 1)) + (-40);
+          var location = {
+            latitude: latitude,
+            longitude: longitude,
+			temperature: temperature
+          };
+
+
+			var topic = document.forms["subs"]["Stopic"].value;
+			var msg = JSON.stringify(location);
+			message = new Paho.MQTT.Message(msg);
+			if (topic == "") {
+				message.destinationName = "test-topic";
+			} else {
+				message.destinationName = topic;
+			}
+			mqtt.send(message);
+			return false;
+        });
+      } else {
+        alert("Geolocation is not supported by this browser.");
+      }
+    }
+
+
+
+
+
+    function send_message() {
+      document.getElementById("messages").innerHTML = "";
+      if (connected_flag == 0) {
+        out_msg = "<b>Not Connected so can't send</b>";
+        console.log(out_msg);
+        document.getElementById("messages").innerHTML = out_msg;
+        return false;
+      }
+      var msg = document.forms["smessage"]["message"].value;
+      console.log(msg);
+      var topic = document.forms["smessage"]["Ptopic"].value;
+      message = new Paho.MQTT.Message(msg);
+      if (topic == "") {
+        message.destinationName = "test-topic";
+      } else {
+        message.destinationName = topic;
+      }
+      mqtt.send(message);
+      return false;
+    }
+
+    function toggleFormsVisibility(connectVisible) {
+      document.getElementById("connectForm").style.display = connectVisible ? "block" : "none";
+      document.getElementById("disconnectBtn").style.display = connectVisible ? "none" : "block";
+    }
+
+    var connected_flag = 0;
+    var mqtt;
+    var reconnectTimeout = 2000;
+    // var host="192.168.1.41";
+    // var port=9001;
+  </script>
+</head>
+<body>
+  <h1>ENGO551 Lab 5</h1>
+  <div id="status">Connection Status: Not Connected</div>
+  <br>
+  <div id="connectForm">
+    <form name="connform" onsubmit="return MQTTconnect()">
+      Server: <input type="text" name="server"><br><br>
+      Port: <input type="text" name="port"><br><br>
+      <input type="submit" value="Connect">
+    </form>
+  </div>
+  <div id="disconnectBtn" style="display: none;">
+    <input type="button" name="discon" value="Disconnect" onclick="disconnect()">
+  </div>
+  <hr>
+  <form name="subs" onsubmit="return sub_topics()">
+    Subscribe Topic: <input type="text" name="Stopic"><br><br>
+    <input type="submit" value="Subscribe">
+  </form>
+  <hr>
+  <form name="smessage" onsubmit="return send_message()">
+    Message: <input type="text" name="message"><br><br>
+    Publish Topic: <input type="text" name="Ptopic"><br><br>
+    <input type="submit" value="Submit">
+  </form>
+  <button onclick="publishLocation()">Publish Location</button>
+  Messages:
+  <p id="messages"></p>
+
+
+
+  <script>
+
+
+
+    //Initializing base leaflet map with open street map centered at Calgary
+    var map = L.map('map').setView([51.0347, -114.0719], 11);
+
+    //Initializing basemap
+    var base = L.tileLayer('https://api.mapbox.com/styles/v1/ypaul/cltmfdyza016o01pta45m7rrf/tiles/256/{z}/{x}/{y}?access_token=pk.eyJ1IjoieXBhdWwiLCJhIjoiY2xyYjNuNnM4MGpsdzJpcDd3ejEwanZyNCJ9.sLUzXHaHcm89Z7qNctEdDQ', {
+        maxZoom: 19,
+    })
+
+    base.addTo(map);    
+    
+</script>
+</body>
+</html>
